@@ -1,8 +1,14 @@
 # gof
 
-> a GUI agnostic GIF player with playback control
+✨ **a GUI agnostic GIF player with playback control**
 
-## Example Usage
+## 🚀 Install
+
+```sh
+go get -u github.com/claytn/gof
+```
+
+## 💡 Usage
 
 ```go
 gp, err := gof.New("./sample.gif", func(img *image.Image) {
