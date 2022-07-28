@@ -9,18 +9,19 @@ import (
 	"time"
 )
 
-const PLAY = 1
-const REWIND = -1
-const PAUSE = 0
+type frameDirection int
+
+const PLAY frameDirection = 1
+const REWIND frameDirection = -1
+const PAUSE frameDirection = 0
 
 type GofPlayer struct {
-	frames      []image.Image
-	render      func(*image.Image)
-	delay       time.Duration
-	frame       int
-	direction   int
-	delayMu     sync.Mutex
-	directionMu sync.Mutex
+	frames    []image.Image
+	render    func(*image.Image)
+	delay     time.Duration
+	frame     int
+	direction frameDirection
+	mu        sync.RWMutex
 }
 
 func New(path string, render func(img *image.Image)) (*GofPlayer, error) {
@@ -31,11 +32,18 @@ func New(path string, render func(img *image.Image)) (*GofPlayer, error) {
 
 	frames := unlayerFrames(g)
 
+	var delayMs int
+	if len(g.Delay) > 0 {
+		delayMs = g.Delay[0] * 10 // Gif Delay contains values in 100ths of a second
+	} else {
+		delayMs = 30 // If no delay specified in GIF file, default to 30ms
+	}
+
 	gp := &GofPlayer{
 		frames:    frames,
 		render:    render,
-		delay:     100,
-		direction: PAUSE, // default to pause
+		delay:     time.Millisecond * time.Duration(delayMs),
+		direction: PLAY,
 	}
 
 	go gp.tick()
@@ -43,33 +51,21 @@ func New(path string, render func(img *image.Image)) (*GofPlayer, error) {
 	return gp, nil
 }
 
-func (g *GofPlayer) Play() {
-	g.setDirection(PLAY)
-}
-
-func (g *GofPlayer) Pause() {
-	g.setDirection(PAUSE)
-}
-
-func (g *GofPlayer) Rewind() {
-	g.setDirection(REWIND)
-}
-
 func (g *GofPlayer) SetDelay(delay time.Duration) {
-	g.delayMu.Lock()
+	g.mu.Lock()
 	g.delay = delay
-	g.delayMu.Unlock()
+	g.mu.Unlock()
 }
 
-func (g *GofPlayer) setDirection(direction int) {
-	g.directionMu.Lock()
+func (g *GofPlayer) SetFrameDirection(direction frameDirection) {
+	g.mu.Lock()
 	g.direction = direction
-	g.directionMu.Unlock()
+	g.mu.Unlock()
 }
 
-func (g *GofPlayer) getDirection() int {
-	g.directionMu.Lock()
-	defer g.directionMu.Unlock()
+func (g *GofPlayer) getDirection() frameDirection {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.direction
 }
 
@@ -81,17 +77,18 @@ func (g *GofPlayer) tick() {
 		g.frame = frameCount - 1
 	}
 	direction := g.getDirection()
+
 	// Avoid calling render function when paused
 	if direction != 0 {
 		go g.render(&g.frames[g.frame])
 	}
 
-	g.frame += direction
+	g.frame += int(direction)
 
 	// Safely read the delay
-	g.delayMu.Lock()
+	g.mu.RLock()
 	delay := g.delay
-	g.delayMu.Unlock()
+	g.mu.RUnlock()
 
 	time.Sleep(delay)
 	g.tick() // Relying on tail call recursion here
