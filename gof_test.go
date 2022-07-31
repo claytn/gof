@@ -7,7 +7,7 @@ import (
 )
 
 func TestGofPlayerCreation(t *testing.T) {
-	_, err := New("./test.gif", func(img *image.Image) {})
+	_, err := New("./assets/test.gif", func(img *image.Image) {})
 
 	if err != nil {
 		t.Errorf("Failed to create GofPlayer instance")
@@ -16,17 +16,15 @@ func TestGofPlayerCreation(t *testing.T) {
 
 func TestGofPlayerRender(t *testing.T) {
 	ch := make(chan string)
-	gp, _ := New("./test.gif", func(img *image.Image) {
+	gp, _ := New("./assets/test.gif", func(img *image.Image) {
 		ch <- "rendered"
 	})
-
-	expectedRenderTimeWithPadding := gp.delay + (time.Millisecond * 10)
 
 	select {
 	case <-ch:
 		// Do nothing
-	case <-time.After(expectedRenderTimeWithPadding):
-		t.Errorf("Expected render to be called within %s", expectedRenderTimeWithPadding)
+	case <-time.After(gp.delay):
+		t.Errorf("Expected render to be called within %s", gp.delay)
 	}
 }
 
@@ -37,7 +35,7 @@ func TestGofPlayerRender(t *testing.T) {
  */
 func TestGofRenderOrderPlay(t *testing.T) {
 	ch := make(chan *image.Image)
-	gp, _ := New("./test.gif", func(img *image.Image) {
+	gp, _ := New("./assets/test.gif", func(img *image.Image) {
 		ch <- img
 	})
 	// Redundant direction set for readability
@@ -70,7 +68,7 @@ func TestGofRenderOrderPlay(t *testing.T) {
 
 func TestGofRenderOrderRewind(t *testing.T) {
 	ch := make(chan *image.Image)
-	gp, _ := New("./test.gif", func(img *image.Image) {
+	gp, _ := New("./assets/test.gif", func(img *image.Image) {
 		ch <- img
 	})
 	gp.SetFrameDirection(REWIND)
